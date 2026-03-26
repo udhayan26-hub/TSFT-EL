@@ -57,7 +57,21 @@ def load_data(filepath='upi_data_enhanced.csv'):
 
 @st.cache_resource
 def train_arima(train_data):
-    model = auto_arima(train_data, m=12, seasonal=True, trace=False, error_action='ignore', suppress_warnings=True, stepwise=True)
+    # Optimizing the ARIMA search space to prevent the frontend from hanging
+    model = auto_arima(
+        train_data, 
+        m=12, 
+        seasonal=True, 
+        trace=False, 
+        error_action='ignore', 
+        suppress_warnings=True, 
+        stepwise=True,
+        max_p=2, 
+        max_q=2, 
+        max_P=1, 
+        max_Q=1, 
+        max_D=1
+    )
     return model
 
 @st.cache_resource
@@ -195,8 +209,11 @@ with tab4:
     st.subheader(f"Future Scenario Planning & Risk Assessment ({forecast_horizon} Months)")
     
     with st.spinner("Executing final ensemble forecasting on target horizon..."):
+        from pmdarima.arima import ARIMA
         # We always forecast the future using ALL historical data
-        final_arima = train_arima(ts_data)
+        # To avoid the slow auto_arima search, we reuse the optimal parameters found during training
+        final_arima = ARIMA(order=arima_model.order, seasonal_order=arima_model.seasonal_order, suppress_warnings=True)
+        final_arima.fit(ts_data)
         future_forecast, conf_int = final_arima.predict(n_periods=forecast_horizon, return_conf_int=True)
         
         # Inject Shock Impact if modified by User
